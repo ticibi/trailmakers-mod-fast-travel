@@ -1,7 +1,4 @@
 -- Fast Travel teleport mod
--- by dinoman 2021
-
--- add teleport to players
 
 local playerDataTable = {}
 
