@@ -1,0 +1,4 @@
+Fast Travel allows you to create, name, and teleport to as many locations as you want
+
+** added ability to overwrite saved points
+** added ability to teleport to other players
