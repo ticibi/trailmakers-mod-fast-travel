@@ -1,7 +1,6 @@
 -- Fast Travel teleport mod
 -- by dinoman 2021
-
--- add teleport to players
+-- Teleport to players, custom teleporting
 
 local playerDataTable = {}
 
@@ -19,13 +18,6 @@ function onPlayerJoined(player)
     local playerId = player.playerId
     addPlayerData(playerId)
     createUI(playerId)
-end
-
-function update()
-    local playerList = tm.players.CurrentPlayers()
-    for k, player in pairs(playerList) do
-        --
-    end
 end
 
 function createUI(playerId)
@@ -164,28 +156,6 @@ function getPointCoordsFromName(playerId, pointName)
             return point.coords
         end
     end
-end
-
-function getClosestPoint()
-    local playerData = playerDataTable[callbackData.playerId]
-    local pos = tm.players.GetPlayerTransform(callbackData.playerId).GetPosition()
-    local positionsData = {}
-    for i, point in pairs(playerData.savedPoints) do
-        local coords = point.coords
-        local distance = math.abs(tm.vector3.op_Subtraction(pos, coords))
-        table.insert(positionsData, {distance=distance, coords=coords, name=point.name})
-    end
-    local smallestDist = nil
-    local smallestData = nil
-    for i, item in pairs(positionsData) do
-        if smallestDist == nil or item.distance < smallestDist then
-            smallestData = item
-        end
-    end
-    if smallestData == nil then
-        return
-    end
-    return smallestData
 end
 
 function Log(message)
