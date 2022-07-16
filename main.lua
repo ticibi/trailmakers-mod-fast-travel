@@ -3,13 +3,7 @@
 -- Teleport to players, custom teleporting
 
 local playerDataTable = {}
-local pointsTable = {{
-    id=99,
-    name="aa",
-    pos=tm.vector3.Create(547, 300, -1915),
-    owner=1,
-    shared=true,
-}}
+local pointsTable = {}
 local pointIdIndex = 1
 
 ---------------------------------------------------------------------------------
