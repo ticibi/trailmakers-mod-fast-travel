@@ -1,4 +1,3 @@
-Fast Travel allows you to create, name, and teleport to as many locations as you want
+*updated: added ability to share points with everyone in the lobby
 
-** added ability to overwrite saved points
-** added ability to teleport to other players
+Fast Travel allows you to create, share, and teleport to as many locations as you create or teleport to other players in your game!
