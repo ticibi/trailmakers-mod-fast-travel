@@ -1,6 +1,8 @@
--- Fast Travel teleport mod
--- by dinoman 2021
--- Teleport to players, custom teleporting
+-- Fast Travel Mod for Trailmakers, ticibi 2022
+-- name: Fast Travel
+-- author: Thomas Bresee
+-- description: create, share, and teleport to saved coordinates and other players
+
 
 local playerDataTable = {}
 local pointsTable = {}
