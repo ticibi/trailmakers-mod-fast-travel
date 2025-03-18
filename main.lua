@@ -1,41 +1,59 @@
--- Fast Travel Mod for Trailmakers, ticibi 2022
--- name: Fast Travel
--- author: Thomas Bresee
--- description: create, share, and teleport to saved coordinates and other players
-
+-- Fast Travel Mod for Trailmakers
+-- Author: ticibi
+-- Description: Create, share, and teleport to saved coordinates and other players
 
 local playerDataTable = {}
 local pointsTable = {}
 local pointIdIndex = 1
 
----------------------------------------------------------------------------------
----------------------------------------------------------------------------------
+-- Constants
+local UI_SPACER = ""
+local UI_DIVIDER = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 
-function AddPoint(playerId, name, pos)
-    local pointData = {
-        id = pointIdIndex,
-        name=name,
-        pos=pos,
-        owner=playerId,
-        shared=false,
-    }
-    table.insert(pointsTable, pointData)
-    pointIdIndex = pointIdIndex + 1
+-- Point Management
+local Point = {
+    new = function(playerId, name, pos)
+        local point = {
+            id = pointIdIndex,
+            name = name,
+            pos = pos,
+            owner = playerId,
+            shared = false
+        }
+        pointIdIndex = pointIdIndex + 1
+        return point
+    end
+}
+
+-- Utility Functions
+local function formatVector(vector)
+    return string.format("x: %d, y: %d, z: %d", 
+        math.ceil(vector.x), 
+        math.ceil(vector.y), 
+        math.ceil(vector.z))
 end
 
-function SetPointName(pointId, pointName)
-    local point = GetPointById(pointId)
-    point.name = pointName
+local function isEmpty(list)
+    return #list < 1
 end
 
-function SharePoint(pointId)
-    local point = GetPointById(pointId)
-    point.shared = true
+local function getPlayerPos(playerId)
+    return tm.players.GetPlayerTransform(playerId).GetPosition()
 end
 
-function GetPlayerPoints(playerId)
+-- Data Management
+local function getPointById(pointId)
+    for _, point in ipairs(pointsTable) do
+        if point.id == pointId then
+            return point
+        end
+    end
+    return nil
+end
+
+local function getPlayerPoints(playerId)
     local points = {}
-    for i, point in ipairs(pointsTable) do
+    for _, point in ipairs(pointsTable) do
         if point.owner == playerId then
             table.insert(points, point)
         end
@@ -43,17 +61,9 @@ function GetPlayerPoints(playerId)
     return points
 end
 
-function GetPointById(pointId)
-    for i, point in ipairs(pointsTable) do
-        if point.id == pointId then
-            return point
-        end
-    end
-end
-
-function GetSharedPoints()
+local function getSharedPoints()
     local points = {}
-    for i, point in ipairs(pointsTable) do
+    for _, point in ipairs(pointsTable) do
         if point.shared then
             table.insert(points, point)
         end
@@ -61,190 +71,165 @@ function GetSharedPoints()
     return points
 end
 
-function AddPlayerData(playerId)
+-- UI Helper Functions
+local UI = {
+    clear = function(playerId) tm.playerUI.ClearUI(playerId) end,
+    setValue = function(playerId, key, text) tm.playerUI.SetUIValue(playerId, key, text) end,
+    spacer = function(playerId) tm.playerUI.AddUILabel(playerId, "spacer", UI_SPACER) end,
+    label = function(playerId, key, text) tm.playerUI.AddUILabel(playerId, key, text) end,
+    divider = function(playerId) tm.playerUI.AddUILabel(playerId, "divider", UI_DIVIDER) end,
+    button = function(playerId, key, text, func) tm.playerUI.AddUIButton(playerId, key, text, func) end,
+    text = function(playerId, key, text, func) tm.playerUI.AddUIText(playerId, key, text, func) end
+}
+
+-- Player Management
+local function initPlayerData(playerId)
     playerDataTable[playerId] = {
         points = {},
-        pointName = "",
+        pointName = ""
     }
 end
 
-function onPlayerJoined(player)
-    AddPlayerData(player.playerId)
+tm.players.OnPlayerJoined.add(function(player)
+    initPlayerData(player.playerId)
     HomePage(player.playerId)
-end
+end)
 
-tm.players.OnPlayerJoined.add(onPlayerJoined)
-
----------------------------------------------------------------------------------
----------------------------------------------------------------------------------
-
-function SetValue(playerId, key, text)
-    tm.playerUI.SetUIValue(playerId, key, text)
-end
-
-function Spacer(playerId)
-    Label(playerId, "spacer", "")
-end
-
-function Clear(playerId)
-    tm.playerUI.ClearUI(playerId)
-end
-
-function Text(playerId, key, text, func)
-    tm.playerUI.AddUIText(playerId, key, text, func)
-end
-
-function Label(playerId, key, text)
-    tm.playerUI.AddUILabel(playerId, key, text)
-end
-
-function Divider(playerId)
-    Label(playerId, "divider", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬")
-end
-
-function Button(playerId, key, text, func)
-    tm.playerUI.AddUIButton(playerId, key, text, func)
-end
-
+-- UI Pages
 function HomePage(playerId)
-    if type(playerId) ~= "number" then
-        playerId = playerId.playerId
-    end
-    local playerPoints = GetPlayerPoints(playerId)
-    local sharedPoints = GetSharedPoints()
-    Clear(playerId)
-    Button(playerId, "players", "teleport to player", PlayersPage)
-    Button(playerId, "add point", "add new point", OnCreateNewPoint)
+    if type(playerId) ~= "number" then playerId = playerId.playerId end
+    
+    local playerPoints = getPlayerPoints(playerId)
+    local sharedPoints = getSharedPoints()
+    
+    UI.clear(playerId)
+    UI.button(playerId, "players", "Teleport to Player", PlayersPage)
+    UI.button(playerId, "add_point", "Add New Point", OnCreateNewPoint)
+    
     if not isEmpty(playerPoints) then
-        Label(playerId, "my points", "my points")
-        for i, point in ipairs(playerPoints) do
-            Button(playerId, point.id, point.name, PointDetailsPage)
+        UI.label(playerId, "my_points", "My Points")
+        UI.divider(playerId)
+        for _, point in ipairs(playerPoints) do
+            UI.button(playerId, tostring(point.id), point.name, PointDetailsPage)
         end
     end
+    
     if not isEmpty(sharedPoints) then
-        Label(playerId, "shared points", "shared points")
-        for i, point in ipairs(sharedPoints) do
-            Button(playerId, point.id, point.name, OnTeleportToSharedPoint)
+        UI.label(playerId, "shared_points", "Shared Points")
+        UI.divider(playerId)
+        for _, point in ipairs(sharedPoints) do
+            UI.button(playerId, tostring(point.id), point.name, OnTeleportToSharedPoint)
         end
     end
 end
 
-function OnTeleportToSharedPoint(callback)
-    local point = GetPointById(tonumber(callback.id))
-    SetPlayerPosition(callback.playerId, point.pos)
-end
-
-function OnCreateNewPoint(callback)
-    Clear(callback.playerId)
-    Label(callback.playerId, "edit point", "name your point")
-    Text(callback.playerId, "new point", "", OnEditPointName)
-    Button(callback.playerId, "save point", "save", OnSavePoint)
-end
-
-function OnEditPointName(callback)
-    local playerData = playerDataTable[callback.playerId]
-    playerData.pointName = callback.value
-end
-
-function OnSavePoint(callback)
-    local playerData = playerDataTable[callback.playerId]
-    if playerData.pointName == "" or playerData.pointName == nil or not playerData.pointName then
-        SetValue(callback.playerId, "save point", "you must name the point")
-        return
-    else
-        local playerPos = GetPlayerPos(callback.playerId)
-        AddPoint(callback.playerId, playerData.pointName, playerPos)
-        playerData.pointName = ""
-        HomePage(callback)
+function PlayersPage(callback)
+    UI.clear(callback.playerId)
+    UI.label(callback.playerId, "players", "Select a Player")
+    UI.divider(callback.playerId)
+    
+    for _, player in ipairs(tm.players.CurrentPlayers()) do
+        if player.playerId ~= callback.playerId then -- Don't show self in list
+            UI.button(callback.playerId, tostring(player.playerId), 
+                tm.players.GetPlayerName(player.playerId), GoToPlayer)
+        end
     end
+    UI.button(callback.playerId, "back", "Back", HomePage)
 end
 
 function PointDetailsPage(callback)
     local pointId = tonumber(callback.id)
-    local point = GetPointById(pointId)
-    Clear(callback.playerId)
-    Label(callback.playerId, "point name", callback.value)
-    Label(callback.playerId, "point position", FormatVector(point.pos))
-    Button(callback.playerId, "go to "..point.id, "go to point", GoToPoint)
-    Button(callback.playerId, "overwrite "..point.id, "overwrite position", ChangePointPosition)
-    Button(callback.playerId, "share "..point.id, "share point", OnSharePoint)
-    Button(callback.playerId, "back", "back", HomePage)
+    local point = getPointById(pointId)
+    if not point then return HomePage(callback.playerId) end
+    
+    UI.clear(callback.playerId)
+    UI.label(callback.playerId, "point_name", point.name)
+    UI.label(callback.playerId, "point_pos", formatVector(point.pos))
+    UI.divider(callback.playerId)
+    UI.button(callback.playerId, "go_"..point.id, "Teleport", GoToPoint)
+    UI.button(callback.playerId, "edit_"..point.id, "Update Position", ChangePointPosition)
+    UI.button(callback.playerId, "share_"..point.id, 
+        point.shared and "Unshare" or "Share", OnToggleSharePoint)
+    UI.button(callback.playerId, "delete_"..point.id, "Delete", OnDeletePoint)
+    UI.button(callback.playerId, "back", "Back", HomePage)
+end
+
+function OnCreateNewPoint(callback)
+    UI.clear(callback.playerId)
+    UI.label(callback.playerId, "edit_point", "Name Your Point")
+    UI.text(callback.playerId, "new_point", "", OnEditPointName)
+    UI.button(callback.playerId, "save_point", "Save", OnSavePoint)
+end
+
+-- Action Handlers
+function OnEditPointName(callback)
+    playerDataTable[callback.playerId].pointName = callback.value
+end
+
+function OnSavePoint(callback)
+    local playerData = playerDataTable[callback.playerId]
+    local name = playerData.pointName:match("^%s*(.-)%s*$") -- Trim whitespace
+    
+    if not name or name == "" then
+        UI.setValue(callback.playerId, "save_point", "Name cannot be empty!")
+        return
+    end
+    
+    local newPoint = Point.new(callback.playerId, name, getPlayerPos(callback.playerId))
+    table.insert(pointsTable, newPoint)
+    playerData.pointName = ""
+    HomePage(callback.playerId)
 end
 
 function GoToPoint(callback)
-    local pointId = tonumber(string.slice(callback.id, 6))
-    local point = GetPointById(pointId)
-    SetPlayerPosition(callback.playerId, point.pos)
+    local pointId = tonumber(callback.id:match("%d+"))
+    local point = getPointById(pointId)
+    if point then
+        tm.players.GetPlayerTransform(callback.playerId).SetPosition(point.pos)
+    end
     HomePage(callback.playerId)
 end
 
 function ChangePointPosition(callback)
-    local pointId = tonumber(string.slice(callback.id, 10))
-    local point = GetPointById(pointId)
-    local playerPos = GetPlayerPos(callback.playerId)
-    point.pos = playerPos
-    SetValue(callback.playerId, "point position", FormatVector(point.pos))
+    local pointId = tonumber(callback.id:match("%d+"))
+    local point = getPointById(pointId)
+    if point then
+        point.pos = getPlayerPos(callback.playerId)
+        UI.setValue(callback.playerId, "point_pos", formatVector(point.pos))
+    end
 end
 
-function OnSharePoint(callback)
-    local pointId = tonumber(string.slice(callback.id, 6))
-    SharePoint(pointId)
+function OnToggleSharePoint(callback)
+    local pointId = tonumber(callback.id:match("%d+"))
+    local point = getPointById(pointId)
+    if point then
+        point.shared = not point.shared
+    end
+    PointDetailsPage(callback)
+end
+
+function OnDeletePoint(callback)
+    local pointId = tonumber(callback.id:match("%d+"))
+    for i, point in ipairs(pointsTable) do
+        if point.id == pointId then
+            table.remove(pointsTable, i)
+            break
+        end
+    end
     HomePage(callback.playerId)
 end
 
-function SetPlayerPosition(playerId, pos)
-    tm.players.GetPlayerTransform(playerId).SetPosition(pos)
-end
-
-function PlayersPage(callback)
-    Clear(callback.playerId)
-    Label(callback.playerId, "players", "select a player")
-    for i, player in ipairs(tm.players.CurrentPlayers()) do
-        Button(callback.playerId, player.playerId, tm.players.GetPlayerName(player.playerId), GoToPlayer)
+function OnTeleportToSharedPoint(callback)
+    local pointId = tonumber(callback.id)
+    local point = getPointById(pointId)
+    if point then
+        tm.players.GetPlayerTransform(callback.playerId).SetPosition(point.pos)
     end
-    Button(callback.playerId, "back", "back", HomePage)
 end
 
 function GoToPlayer(callback)
-    local otherId = tonumber(callback.id)
-    local otherPos = GetPlayerPos(otherId)
-    SetPlayerPosition(callback.playerId, otherPos)
-    HomePage(callback)
-end
-
-function OverwritePoint(callback)
-    local playerId = callback.playerId
-    local playerData = playerDataTable[playerId]
-    local pointName = string.slice(callback.id, 10)
-    local pos = GetPlayerPos(playerId)
-    for i, point in ipairs(playerData.savedPoints) do
-        if point.name == pointName then
-            playerData.savedPoints[i].pos = pos
-            SetValue(playerId, "coords", formatVector(pos))
-            SetValue(playerId, "name", " Updated! " .. pointName)
-        end
-    end
-end
-
-function GetPlayerPos(playerId)
-    return tm.players.GetPlayerTransform(playerId).GetPosition()
-end
-
----------------------------------------------------------------------------------
----------------------------------------------------------------------------------
-
-function FormatVector(vector)
-    return 'x: '..math.ceil(vector.x)..', y: '..math.ceil(vector.y)..', z: '..math.ceil(vector.z)
-end
-
-function Log(message)
-    tm.os.Log(message)
-end
-
-function isEmpty(list)
-    return #list < 1
-end
-
-function string.slice(string, n)
-    return string:sub(n, #string)
+    local targetId = tonumber(callback.id)
+    local pos = getPlayerPos(targetId)
+    tm.players.GetPlayerTransform(callback.playerId).SetPosition(pos)
+    HomePage(callback.playerId)
 end
